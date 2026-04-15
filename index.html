@@ -1,0 +1,457 @@
+<!DOCTYPE html>
+<html lang="hi">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+  <title>Stock Price Predictor</title>
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/Chart.js/4.4.1/chart.umd.js"></script>
+  <style>
+    /* ── Reset & Base ── */
+    *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+    body {
+      font-family: 'Segoe UI', Arial, sans-serif;
+      background: #f4f6fb;
+      color: #1a1a2e;
+      min-height: 100vh;
+    }
+
+    /* ── Header ── */
+    header {
+      background: #0f172a;
+      color: #fff;
+      padding: 20px 32px;
+      display: flex;
+      align-items: center;
+      gap: 14px;
+    }
+    header .logo {
+      width: 38px; height: 38px;
+      background: #378ADD;
+      border-radius: 10px;
+      display: flex; align-items: center; justify-content: center;
+      font-size: 20px; font-weight: 700; color: #fff;
+    }
+    header h1 { font-size: 20px; font-weight: 600; }
+    header p  { font-size: 13px; color: #94a3b8; margin-top: 2px; }
+
+    /* ── Main Container ── */
+    .container { max-width: 960px; margin: 32px auto; padding: 0 20px; }
+
+    /* ── Controls Card ── */
+    .card {
+      background: #fff;
+      border-radius: 14px;
+      border: 1px solid #e2e8f0;
+      padding: 20px 24px;
+      margin-bottom: 20px;
+    }
+    .card-title {
+      font-size: 13px; font-weight: 600;
+      color: #64748b;
+      text-transform: uppercase;
+      letter-spacing: .06em;
+      margin-bottom: 16px;
+    }
+
+    .controls {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 14px;
+      align-items: flex-end;
+    }
+    .ctrl-group { display: flex; flex-direction: column; gap: 6px; }
+    .ctrl-group label {
+      font-size: 12px;
+      color: #64748b;
+      font-weight: 500;
+    }
+    select, input[type="number"] {
+      height: 38px;
+      padding: 0 12px;
+      border: 1px solid #cbd5e1;
+      border-radius: 8px;
+      font-size: 14px;
+      color: #1a1a2e;
+      background: #f8fafc;
+      outline: none;
+      transition: border-color .2s;
+      min-width: 140px;
+    }
+    select:focus, input:focus { border-color: #378ADD; background: #fff; }
+
+    /* ── Run Button ── */
+    .btn-run {
+      height: 38px;
+      padding: 0 24px;
+      background: #378ADD;
+      color: #fff;
+      border: none;
+      border-radius: 8px;
+      font-size: 14px;
+      font-weight: 600;
+      cursor: pointer;
+      transition: background .2s, transform .1s;
+    }
+    .btn-run:hover  { background: #185FA5; }
+    .btn-run:active { transform: scale(0.97); }
+
+    /* ── Metrics Grid ── */
+    .metrics {
+      display: grid;
+      grid-template-columns: repeat(4, minmax(0,1fr));
+      gap: 12px;
+      margin-bottom: 20px;
+    }
+    @media (max-width: 600px) {
+      .metrics { grid-template-columns: repeat(2, 1fr); }
+      .controls { flex-direction: column; }
+      select, input[type="number"] { min-width: 100%; width: 100%; }
+    }
+    .metric {
+      background: #f1f5f9;
+      border-radius: 10px;
+      padding: 14px 16px;
+    }
+    .metric-label {
+      font-size: 11px;
+      color: #64748b;
+      text-transform: uppercase;
+      letter-spacing: .05em;
+      margin-bottom: 6px;
+    }
+    .metric-value {
+      font-size: 22px;
+      font-weight: 700;
+      color: #1a1a2e;
+    }
+    .metric-value.up   { color: #1D9E75; }
+    .metric-value.down { color: #E24B4A; }
+
+    /* ── Chart Card ── */
+    .chart-wrap { position: relative; width: 100%; height: 320px; }
+
+    /* ── Legend ── */
+    .legend {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 16px;
+      margin-top: 14px;
+      font-size: 12px;
+      color: #64748b;
+    }
+    .legend span {
+      display: flex;
+      align-items: center;
+      gap: 7px;
+    }
+    .ld { width: 14px; height: 3px; border-radius: 2px; display: inline-block; }
+
+    /* ── Info Note ── */
+    .note {
+      margin-top: 20px;
+      background: #eff6ff;
+      border-left: 3px solid #378ADD;
+      border-radius: 0 8px 8px 0;
+      padding: 12px 16px;
+      font-size: 13px;
+      color: #1e40af;
+    }
+    .note strong { font-weight: 600; }
+
+    /* ── Footer ── */
+    footer {
+      text-align: center;
+      padding: 24px;
+      font-size: 12px;
+      color: #94a3b8;
+    }
+  </style>
+</head>
+<body>
+
+<header>
+  <div class="logo">S</div>
+  <div>
+    <h1>Stock Price Predictor</h1>
+    <p>Historical data + Regression se future price forecast karo</p>
+  </div>
+</header>
+
+<div class="container">
+
+  <!-- Controls Card -->
+  <div class="card">
+    <div class="card-title">Settings</div>
+    <div class="controls">
+
+      <div class="ctrl-group">
+        <label for="stk"> Choose Stock</label>
+        <select id="stk">
+          <option value="AAPL">AAPL — Apple</option>
+          <option value="MSFT">MSFT — Microsoft</option>
+          <option value="GOOGL">GOOGL — Alphabet</option>
+          <option value="TSLA">TSLA — Tesla</option>
+          <option value="AMZN">AMZN — Amazon</option>
+        </select>
+      </div>
+
+      <div class="ctrl-group">
+        <label for="mdl">Prediction model</label>
+        <select id="mdl">
+          <option value="linear">Linear Regression</option>
+          <option value="poly">Polynomial (Degree 3)</option>
+          <option value="ma">Moving Average</option>
+        </select>
+      </div>
+
+      <div class="ctrl-group">
+        <label for="hist">History (days)</label>
+        <input type="number" id="hist" value="60" min="30" max="120" step="10" style="min-width:100px;width:100px">
+      </div>
+
+      <div class="ctrl-group">
+        <label for="fcast">Forecast (days)</label>
+        <input type="number" id="fcast" value="14" min="5" max="30" step="1" style="min-width:100px;width:100px">
+      </div>
+
+      <button class="btn-run" onclick="run()">Predict</button>
+    </div>
+  </div>
+
+  <!-- Metric Cards -->
+  <div class="metrics" id="metrics">
+    <div class="metric"><div class="metric-label">Current Price</div><div class="metric-value" id="m1">—</div></div>
+    <div class="metric"><div class="metric-label">Forecast Price</div><div class="metric-value" id="m2">—</div></div>
+    <div class="metric"><div class="metric-label">Expected Change</div><div class="metric-value" id="m3">—</div></div>
+    <div class="metric"><div class="metric-label">Model R²</div><div class="metric-value" id="m4">—</div></div>
+  </div>
+
+  <!-- Chart Card -->
+  <div class="card">
+    <div class="card-title">Price Chart</div>
+    <div class="chart-wrap">
+      <canvas id="chart" role="img" aria-label="Stock price history and prediction chart"></canvas>
+    </div>
+    <div class="legend">
+      <span><span class="ld" style="background:#378ADD"></span>Historical price</span>
+      <span><span class="ld" style="background:#1D9E75;border-top:2px dashed #1D9E75;height:0;width:16px"></span>Model fit</span>
+      <span><span class="ld" style="background:#EF9F27"></span>Forecast</span>
+      <span><span class="ld" style="background:#EF9F27;opacity:.35;width:20px"></span>Confidence band</span>
+    </div>
+  </div>
+
+  <!-- Note -->
+  <div class="note">
+    <strong>Note:</strong> Yeh <em>simulated</em> historical data hai — real trading ke liye
+    <strong>Alpha Vantage</strong> ya <strong>Yahoo Finance API</strong> integrate karein.
+    Yeh model sirf educational purpose ke liye hai.
+  </div>
+
+</div>
+
+<footer>Stock Price Predictor &mdash; HTML + CSS + JavaScript</footer>
+
+<!-- ══════════════════════════════════════
+     JAVASCRIPT — Regression Models
+══════════════════════════════════════ -->
+<script>
+  let chartInstance = null;
+
+  /* ── Seed-based prices (reproducible fake data) ── */
+  const BASE_PRICES = { AAPL: 182, MSFT: 378, GOOGL: 140, TSLA: 248, AMZN: 185 };
+
+  function seededRandom(seed) {
+    let s = seed;
+    return () => { s = (s * 16807) % 2147483647; return (s - 1) / 2147483646; };
+  }
+
+  function generatePrices(ticker, nDays) {
+    const rand  = seededRandom(BASE_PRICES[ticker] * 997 + 13);
+    let   price = BASE_PRICES[ticker];
+    const trend = (rand() - 0.48) * 0.003;
+    const out   = [];
+    for (let i = 0; i < nDays; i++) {
+      price *= 1 + trend + (rand() - 0.5) * 0.025;
+      out.push(Math.round(price * 100) / 100);
+    }
+    return out;
+  }
+
+  /* ── Linear Regression ── */
+  function linearRegression(xs, ys) {
+    const n  = xs.length;
+    const mx = xs.reduce((a, b) => a + b, 0) / n;
+    const my = ys.reduce((a, b) => a + b, 0) / n;
+    let num = 0, den = 0;
+    for (let i = 0; i < n; i++) { num += (xs[i] - mx) * (ys[i] - my); den += (xs[i] - mx) ** 2; }
+    const m = den ? num / den : 0;
+    const b = my - m * mx;
+    return x => m * x + b;
+  }
+
+  /* ── Gaussian Elimination (for polynomial) ── */
+  function gaussElim(A, B) {
+    const n = A.length;
+    for (let p = 0; p < n; p++) {
+      let maxRow = p;
+      for (let i = p + 1; i < n; i++) if (Math.abs(A[i][p]) > Math.abs(A[maxRow][p])) maxRow = i;
+      [A[p], A[maxRow]] = [A[maxRow], A[p]];
+      [B[p], B[maxRow]] = [B[maxRow], B[p]];
+      for (let i = p + 1; i < n; i++) {
+        const f = A[i][p] / A[p][p];
+        B[i] -= f * B[p];
+        for (let j = p; j < n; j++) A[i][j] -= f * A[p][j];
+      }
+    }
+    const x = new Array(n).fill(0);
+    for (let i = n - 1; i >= 0; i--) {
+      x[i] = B[i] / A[i][i];
+      for (let j = i + 1; j < n; j++) x[i] -= A[i][j] * x[j] / A[i][i];
+    }
+    return x;
+  }
+
+  /* ── Polynomial Regression ── */
+  function polynomialRegression(xs, ys, degree) {
+    const n = xs.length, d = degree + 1;
+    const A = [], B = [];
+    for (let i = 0; i < d; i++) {
+      A.push([]);
+      B.push(0);
+      for (let j = 0; j < d; j++) A[i].push(xs.reduce((s, x) => s + Math.pow(x, i + j), 0));
+      B[i] = xs.reduce((s, x, k) => s + Math.pow(x, i) * ys[k], 0);
+    }
+    const coeffs = gaussElim(A, B);
+    return x => coeffs.reduce((s, c, i) => s + c * Math.pow(x, i), 0);
+  }
+
+  /* ── Moving Average ── */
+  function movingAverage(ys, window = 10) {
+    return i => {
+      const slice = ys.slice(Math.max(0, i - window + 1), i + 1);
+      return slice.reduce((a, b) => a + b, 0) / slice.length;
+    };
+  }
+
+  /* ── Standard Deviation ── */
+  function stdDev(vals) {
+    const mean = vals.reduce((a, b) => a + b, 0) / vals.length;
+    return Math.sqrt(vals.reduce((s, v) => s + (v - mean) ** 2, 0) / vals.length);
+  }
+
+  /* ── R² Score ── */
+  function r2Score(actual, predicted) {
+    const mean   = actual.reduce((a, b) => a + b, 0) / actual.length;
+    const ssTot  = actual.reduce((s, p) => s + (p - mean) ** 2, 0);
+    const ssRes  = actual.reduce((s, p, i) => s + (p - predicted[i]) ** 2, 0);
+    return (1 - ssRes / ssTot).toFixed(3);
+  }
+
+  /* ── Main Predict Function ── */
+  function run() {
+    const ticker     = document.getElementById('stk').value;
+    const modelType  = document.getElementById('mdl').value;
+    const nHist      = Math.max(30, Math.min(120, +document.getElementById('hist').value  || 60));
+    const nForecast  = Math.max(5,  Math.min(30,  +document.getElementById('fcast').value || 14));
+
+    const prices = generatePrices(ticker, nHist);
+    const xs     = prices.map((_, i) => i);
+
+    /* fit model */
+    let modelFn;
+    if      (modelType === 'linear') modelFn = linearRegression(xs, prices);
+    else if (modelType === 'poly')   modelFn = polynomialRegression(xs, prices, 3);
+    else                             modelFn = movingAverage(prices, 10);
+
+    const fitted = xs.map(i => Math.round(modelFn(i) * 100) / 100);
+
+    /* residuals & sigma */
+    const residuals = prices.map((p, i) => p - fitted[i]);
+    const sigma     = stdDev(residuals);
+
+    /* forecast */
+    const lastPrice = prices[prices.length - 1];
+    let forecastVals;
+    if (modelType === 'ma') {
+      const trend = (prices[prices.length - 1] - prices[prices.length - 6]) / 5;
+      forecastVals = Array.from({ length: nForecast }, (_, i) =>
+        Math.round((lastPrice + trend * (i + 1)) * 100) / 100);
+    } else {
+      forecastVals = Array.from({ length: nForecast }, (_, i) =>
+        Math.round(modelFn(nHist + i) * 100) / 100);
+    }
+
+    /* confidence band */
+    const upperBand = forecastVals.map((v, i) => Math.round((v + sigma * (1 + i * 0.08)) * 100) / 100);
+    const lowerBand = forecastVals.map((v, i) => Math.round((v - sigma * (1 + i * 0.08)) * 100) / 100);
+
+    const forecastLast = forecastVals[forecastVals.length - 1];
+    const changePct    = ((forecastLast - lastPrice) / lastPrice * 100).toFixed(2);
+    const r2           = r2Score(prices, fitted);
+
+    /* update metric cards */
+    const upClass  = changePct >= 0 ? 'up' : 'down';
+    const sign     = changePct >= 0 ? '+' : '';
+
+    document.getElementById('m1').textContent  = `$${lastPrice.toFixed(2)}`;
+    document.getElementById('m1').className    = 'metric-value';
+    document.getElementById('m2').textContent  = `$${forecastLast.toFixed(2)}`;
+    document.getElementById('m2').className    = `metric-value ${upClass}`;
+    document.getElementById('m3').textContent  = `${sign}${changePct}%`;
+    document.getElementById('m3').className    = `metric-value ${upClass}`;
+    document.getElementById('m4').textContent  = r2;
+    document.getElementById('m4').className    = 'metric-value';
+
+    /* chart data */
+    const labels   = [...prices.map((_, i) => `D${i + 1}`),
+                      ...Array.from({ length: nForecast }, (_, i) => `+${i + 1}`)];
+    const histData  = [...prices,  ...new Array(nForecast).fill(null)];
+    const fitData   = [...fitted,  ...new Array(nForecast).fill(null)];
+    const fcData    = [...new Array(nHist).fill(null), ...forecastVals];
+    const upData    = [...new Array(nHist).fill(null), ...upperBand];
+    const dnData    = [...new Array(nHist).fill(null), ...lowerBand];
+
+    if (chartInstance) chartInstance.destroy();
+
+    chartInstance = new Chart(document.getElementById('chart'), {
+      type: 'line',
+      data: {
+        labels,
+        datasets: [
+          { label: 'Historical',    data: histData, borderColor: '#378ADD', borderWidth: 2,   pointRadius: 0, tension: 0.3 },
+          { label: 'Model fit',     data: fitData,  borderColor: '#1D9E75', borderWidth: 1.5, pointRadius: 0, tension: 0.3, borderDash: [5, 4] },
+          { label: 'Forecast',      data: fcData,   borderColor: '#EF9F27', borderWidth: 2,   pointRadius: 0, tension: 0.3 },
+          { label: 'Upper band',    data: upData,   borderColor: 'rgba(239,159,39,0)', backgroundColor: 'rgba(239,159,39,0.13)', fill: '+1', pointRadius: 0 },
+          { label: 'Lower band',    data: dnData,   borderColor: 'rgba(239,159,39,0)', fill: false, pointRadius: 0 },
+        ]
+      },
+      options: {
+        responsive: true,
+        maintainAspectRatio: false,
+        interaction: { mode: 'index', intersect: false },
+        plugins: {
+          legend: { display: false },
+          tooltip: {
+            filter: item => item.parsed.y !== null && item.dataset.label !== 'Upper band' && item.dataset.label !== 'Lower band',
+            callbacks: { label: ctx => `${ctx.dataset.label}: $${ctx.parsed.y.toFixed(2)}` }
+          }
+        },
+        scales: {
+          x: {
+            ticks: { autoSkip: true, maxTicksLimit: 12, color: '#888780', font: { size: 11 } },
+            grid:  { color: 'rgba(100,116,139,0.1)' }
+          },
+          y: {
+            ticks: { color: '#888780', font: { size: 11 }, callback: v => '$' + v.toFixed(0) },
+            grid:  { color: 'rgba(100,116,139,0.1)' }
+          }
+        }
+      }
+    });
+  }
+
+  /* run on page load */
+  run();
+</script>
+</body>
+</html>
